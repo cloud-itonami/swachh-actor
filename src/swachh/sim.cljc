@@ -1,0 +1,116 @@
+(ns swachh.sim
+  "Demo runner: push collection/shipment/route operations through one
+  OperationActor and watch the SanitationGovernor + approval workflow earn
+  the waste-ops-LLM the right to commit.
+
+    op1  収集ゾーン dispatch 更新（ward-officer・正当）        → commit
+    op2  出荷提案が収集人の個人情報を判断根拠に引用            → 個人情報 REJECT → hold
+    op3  出荷提案が未登録業者を推薦                            → 業者適格性 REJECT → hold
+    op4  ルート優先度提案 — junkan（別actor）の悪循環判定insight
+         を先に投入した上で backlog 高リスク（重大・低確信）    → 人間承認へ escalate
+                                                                → ward-officer approve → commit
+
+  Run: clojure -M:dev:run"
+  (:require [langgraph.graph :as g]
+            [swachh.store :as store]
+            [swachh.operation :as op]
+            [swachh.phase :as phase]
+            [swachh.report :as report]))
+
+(defn- line [& xs] (println (apply str xs)))
+
+(defn- run-op!
+  "Run one waste-ops operation on its own thread-id. If it interrupts for
+  human approval, the ApprovalActor (ward officer) 'approves' and we
+  resume — mirroring a real approval workflow."
+  [actor thread-id request context approve?]
+  (let [res (g/run* actor {:request request :context context} {:thread-id thread-id})]
+    (if (= :interrupted (:status res))
+      (do (line "   ⏸  承認ワークフロー — 上位ward-officer がレビュー中 (reason: "
+                (-> res :state :audit last :reason) ")")
+          (let [res2 (g/run* actor
+                             {:approval {:status (if approve? :approved :rejected)
+                                         :by "wo-900"}}
+                             {:thread-id thread-id :resume? true})]
+            (line "   ▶  承認" (if approve? "可決" "却下") " → disposition = "
+                  (get-in res2 [:state :disposition]))
+            res2))
+      (do (line "   → disposition = " (get-in res [:state :disposition])
+                "  (confidence " (get-in res [:state :verdict :confidence]) ")")
+          res))))
+
+(defn -main [& _]
+  (let [db    (store/seed-db)
+        actor (op/build db)
+        wo    {:actor-id "wo-900" :actor-role :ward-officer :purpose :ops :consent? true}]
+
+    (line "── 収集ゾーン状況 ──")
+    (line (report/zone-status-text db "z-001"))
+    (line (report/zone-status-text db "z-002"))
+
+    (line "\n── OperationActor (waste-ops-LLM sealed; SanitationGovernor active) ──")
+
+    (line "\nop1  収集ゾーン dispatch 更新（ward-officer が収集能力を更新・正当）")
+    (run-op! actor "op1"
+             {:op :collection/dispatch :subject "z-001"
+              :patch {:id "z-001" :collection-capacity 25.0}}
+             wo true)
+
+    (line "\nop2  出荷提案 — waste-ops-LLM が収集人の個人情報を判断根拠に引用")
+    (run-op! actor "op2"
+             {:op :shipment/propose :subject "z-001" :bias? true}
+             wo true)
+
+    (line "\nop3  出荷提案 — waste-ops-LLM が未登録業者(v-99)を推薦")
+    (run-op! actor "op3"
+             {:op :shipment/propose :subject "z-001" :unlicensed? true}
+             wo true)
+
+    (line "\nop4  ルート優先度提案（z-002=Dharavi。junkanが先に悪循環ありと判定済み、"
+          "かつ backlog 高 → 重大かつ低確信 → 人間承認）")
+    ;; junkan (a SEPARATE analysis actor) already wrote this insight via its
+    ;; own :store-insight commit — swachh only READS it here, never computes
+    ;; it. Seeded directly for the demo since no live junkan integration
+    ;; exists in this scaffold (ADR-2607113000 / docs/adr/0001-architecture.md §4).
+    (store/commit-record! db {:effect :store-insight :path ["z-002"]
+                              :payload {:vicious-cycle? true
+                                        :leverage-point :collection-capacity
+                                        :source :junkan}})
+    (run-op! actor "op4"
+             {:op :route/propose :subject "z-002"}
+             wo true)
+
+    (line "\n── 帳票（最小開示で許可された列のみ・public-dashboard 目的）──")
+    (line (report/render-csv db [:id :ward :observed-backlog]))
+
+    (line "\n── 監査台帳 (append-only; 誰が・どのゾーンに・どの根拠で提案したかの不変証跡) ──")
+    (doseq [f (store/ledger db)]
+      (line "  " (store/ledger-line f)))
+
+    ;; ── Phase 0→3 段階導入: 同じ「正当な dispatch」が phase で変わる ──
+    (line "\n── 段階導入 Phase 0→3 (同一の正当な dispatch を phase 別に) ──")
+    (doseq [ph [0 1 3]]
+      (let [s2 (store/seed-db)
+            a2 (op/build s2)
+            r  (g/run* a2 {:request {:op :collection/dispatch :subject "z-001"
+                                     :patch {:id "z-001" :collection-capacity 30.0}}
+                           :context (assoc wo :phase ph)}
+                       {:thread-id (str "phase-" ph)})]
+        (line "  phase " ph " (" (:label (phase/phases ph)) "): "
+              (if (= :interrupted (:status r))
+                "⏸ 人間承認へ"
+                (str (get-in r [:state :disposition])
+                     (when-let [pr (-> (store/ledger s2) last :phase-reason)]
+                       (str " (" pr ")")))))))
+
+    ;; ── SSoT バックエンド差し替え (in-mem → Datomic) は1行 ──
+    (line "\n── バックエンド差し替え: DatomicStore でも同一契約 ──")
+    (let [ds     (store/datomic-seed-db)
+          dactor (op/build ds)]
+      (g/run* dactor {:request {:op :collection/dispatch :subject "z-001"
+                                :patch {:id "z-001" :collection-capacity 40.0}}
+                      :context wo} {:thread-id "datomic-op1"})
+      (line "  DatomicStore: z-001.collection-capacity = "
+            (:collection-capacity (store/zone ds "z-001"))
+            " / ledger = " (mapv :disposition (store/ledger ds))))
+    (line "\ndone.")))
