@@ -2,8 +2,12 @@
   "The Store contract, run against BOTH backends. Proving MemStore and the
   Datomic-backed (langchain.db) store satisfy the same contract is what
   makes 'swap the SSoT for Datomic' a configuration change, not a rewrite."
-  (:require [clojure.test :refer [deftest is testing]]
-            [swachh.store :as store]))
+  (:require [clojure.java.io :as io]
+            [clojure.test :refer [deftest is testing]]
+            [langchain.edn-persist :as edn-persist]
+            [swachh.store :as store])
+  (:import [java.nio.file Files]
+           [java.nio.file.attribute FileAttribute]))
 
 (defn- backends []
   [["MemStore" (store/seed-db)] ["DatomicStore" (store/datomic-seed-db)]])
@@ -52,3 +56,19 @@
     (is (= [] (store/ledger s)))
     (store/with-zones s {"x" {:id "x" :name "X" :ward "W" :collection-capacity 1.0}})
     (is (= "X" (:name (store/zone s "x"))))))
+
+(deftest repository-backed-store-restores-after-restart
+  (let [dir (.toFile (Files/createTempDirectory
+                      "swachh-repository-" (make-array FileAttribute 0)))
+        file (io/file dir "state.edn")
+        environment {"KOTOBA_REPOSITORY_STATE_FILE" (.getPath file)}
+        open-store #(store/datomic-store
+                     {}
+                     (edn-persist/configured-persist environment
+                                                     "actor/swachh"))
+        first-process (open-store)]
+    (store/with-zones first-process {"z" {:id "z" :name "Persistent"}})
+    (store/append-ledger! first-process {:op :dispatch :disposition :commit})
+    (let [second-process (open-store)]
+      (is (= "Persistent" (:name (store/zone second-process "z"))))
+      (is (= [:commit] (mapv :disposition (store/ledger second-process)))))))
