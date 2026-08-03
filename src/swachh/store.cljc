@@ -212,10 +212,13 @@
 
 (defn datomic-store
   "A DatomicStore (langchain.db backend) seeded from `data`
-  ({:zones .. :vendors ..}); empty when omitted."
-  ([] (datomic-store {}))
-  ([{:keys [zones vendors]}]
-   (let [s (->DatomicStore (d/create-conn schema))]
+  ({:zones .. :vendors ..}); empty when omitted. PERSIST is the optional
+  sealed transaction append/read port; all Datalog query execution remains
+  in this process."
+  ([] (datomic-store {} nil))
+  ([data] (datomic-store data nil))
+  ([{:keys [zones vendors]} persist]
+   (let [s (->DatomicStore (d/create-conn schema persist))]
      (-> s (with-zones zones) (with-vendors vendors)))))
 
 (defn datomic-seed-db
