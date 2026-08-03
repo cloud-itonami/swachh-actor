@@ -4,7 +4,7 @@
  :deps {io.github.kotoba-lang/langgraph
         {:local/root "../../kotoba-lang/langgraph"}
         io.github.kotoba-lang/langchain
-        {:git/sha "5f51481af47d5dad9b812c6298b5a66dc6fbb179"}}
+        {:git/sha "06a27bf4efef1efe758042c4c5f26500b2c56b30"}}
  :aliases
  {;; offline workspace dev — pin transitive langchain to local checkout
   :dev {:override-deps
