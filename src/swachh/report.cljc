@@ -5,7 +5,7 @@
   namespace only renders the approved columns, so a report can never
   disclose more than policy allows — worker PII (`:collector-*`) only
   appears if a future, narrowly-scoped purpose explicitly allows it."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [swachh.store :as store]))
 
 (defn- collector-cell [z c]
