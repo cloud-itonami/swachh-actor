@@ -84,13 +84,13 @@ commit**), then prints the immutable audit ledger.
 
 | File | Actor / role |
 |---|---|
-| `src/swachh/wasteops.cljc` | **Advisor** protocol — `mock-advisor` (default) ‖ `llm-advisor` (real `langchain.model` ChatModel) |
-| `src/swachh/governor.cljc` | **SanitationGovernor** — RBAC · purpose · worker-privacy · vendor-eligibility · minimal-disclosure · escalation |
-| `src/swachh/phase.cljc` | **Phase 0→3 rollout** — read-only → assisted-dispatch → assisted-route → supervised-auto |
-| `src/swachh/operation.cljc` | **OperationActor** — langgraph-clj StateGraph (1 run = 1 waste-ops op); Store/Advisor/Phase injected |
-| `src/swachh/store.cljc` | **Store** protocol — `MemStore` (default) ‖ `DatomicStore` (`langchain.db`, swappable to Datomic Local / kotoba-server) + append-only ledger; `insight-of` is the read-only channel for a separate analysis actor's (junkan) output |
-| `src/swachh/report.cljc` | **ReportActor** — governed CSV export + zone status view |
-| `src/swachh/sim.cljc` | demo driver |
+| `src/swachh/wasteops.kotoba` | **Advisor** protocol — `mock-advisor` (default) ‖ `llm-advisor` (real `langchain.model` ChatModel) |
+| `src/swachh/governor.kotoba` | **SanitationGovernor** — RBAC · purpose · worker-privacy · vendor-eligibility · minimal-disclosure · escalation |
+| `src/swachh/phase.kotoba` | **Phase 0→3 rollout** — read-only → assisted-dispatch → assisted-route → supervised-auto |
+| `src/swachh/operation.kotoba` | **OperationActor** — langgraph-clj StateGraph (1 run = 1 waste-ops op); Store/Advisor/Phase injected |
+| `src/swachh/store.kotoba` | **Store** protocol — `MemStore` (default) ‖ `DatomicStore` (`langchain.db`, swappable to Datomic Local / kotoba-server) + append-only ledger; `insight-of` is the read-only channel for a separate analysis actor's (junkan) output |
+| `src/swachh/report.kotoba` | **ReportActor** — governed CSV export + zone status view |
+| `src/swachh/sim.kotoba` | demo driver |
 | `test/swachh/*_test.cljc` | governor contract · store parity (Mem≡Datomic) · LLM advisor · phase rollout |
 
 **Not in this repo**: any system-dynamics stock/flow model. That is
