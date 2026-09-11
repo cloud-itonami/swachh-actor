@@ -15,7 +15,7 @@
   :dev {:override-deps
         {io.github.kotoba-lang/langchain
          {:local/root "../../kotoba-lang/langchain"}}}
-  ;; clojure -M:dev:run  → drive the collection/shipment/route demo
+  ;; kbb -M:dev:run  → drive the collection/shipment/route demo
   :run {:main-opts ["-m" "swachh.sim"]}
   :run-repository {:main-opts ["-m" "swachh.repository-runner"]}
   :test {:extra-paths ["test"]

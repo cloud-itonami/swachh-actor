@@ -67,9 +67,9 @@ the approval workflow.
 ## Run
 
 ```bash
-clojure -M:dev:run     # drive collection/dispatch, shipment, route ops through one OperationActor
-clojure -M:dev:test    # governor contract · store parity · LLM advisor · phases
-clojure -M:lint        # clj-kondo (errors fail; CI mirrors this)
+kbb -M:dev:run     # drive collection/dispatch, shipment, route ops through one OperationActor
+kbb -M:dev:test    # governor contract · store parity · LLM advisor · phases
+kbb -M:lint        # clj-kondo (errors fail; CI mirrors this)
 ```
 
 Demo output walks four operations: a collection-capacity dispatch update
