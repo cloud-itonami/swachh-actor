@@ -10,7 +10,7 @@
          を先に投入した上で backlog 高リスク（重大・低確信）    → 人間承認へ escalate
                                                                 → ward-officer approve → commit
 
-  Run: clojure -M:dev:run"
+  Run: kbb -M:dev:run"
   (:require [langgraph.graph :as g]
             [swachh.store :as store]
             [swachh.operation :as op]
