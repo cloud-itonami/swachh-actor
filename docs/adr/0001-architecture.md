@@ -152,7 +152,7 @@ junkan のコードを直接呼び出す統合はしない**（過剰結合を�
   surface に一切含まれない（決定1参照）。将来これらが必要になっても、governor が
   拒否できない形で actor に持たせてはならない。
 - RAD identity 登録（`etzhayyim/root` の `80-data/kotoba-rad/`）— follow-up として
-  残す（CLAUDE.md Actors 節）。
+  残す（AGENTS.md Actors 節）。
 
 ## 帰結
 
